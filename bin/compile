@@ -175,19 +175,6 @@ if [[ "$YARN_2" == "true" ]]; then
   else
     meta_set "yarn2-pnp-linker" "true"
   fi
-
-  ### Configure Yarn 2
-  # fail for no yarnrc.yml
-  fail_missing_yarnrc_yml "$BUILD_DIR"
-
-  # get yarn_path
-  VENDOR_PATH=$(get_yarn_path "$BUILD_DIR")
-
-  # fail for no yarnPath in rc
-  fail_missing_yarn_path "$BUILD_DIR" "$VENDOR_PATH"
-
-  # fail for missing yarn in .yarn/releases
-  fail_missing_yarn_vendor "$BUILD_DIR" "$VENDOR_PATH"
 fi
 
 ### Configure package manager cache directories
@@ -196,21 +183,13 @@ fi
 export YARN_CACHE_FOLDER NPM_CONFIG_CACHE
 
 install_bins() {
-  local node_engine npm_engine yarn_engine npm_version node_version
+  local node_engine node_version
 
   node_engine=$(read_json "$BUILD_DIR/package.json" ".engines.node")
-  npm_engine=$(read_json "$BUILD_DIR/package.json" ".engines.npm")
-  yarn_engine=$(read_json "$BUILD_DIR/package.json" ".engines.yarn")
 
   meta_set "node-version-request" "$node_engine"
-  meta_set "npm-version-request" "$npm_engine"
-  meta_set "yarn-version-request" "$yarn_engine"
 
   echo "engines.node (package.json):  ${node_engine:-unspecified}"
-  echo "engines.npm (package.json):   ${npm_engine:-unspecified (use default)}"
-  if $YARN || [ -n "$yarn_engine" ]; then
-    echo "engines.yarn (package.json):  ${yarn_engine:-unspecified (use default)}"
-  fi
   echo ""
 
   warn_node_engine "$node_engine"
@@ -218,30 +197,14 @@ install_bins() {
   meta_set "build-step" "install-nodejs"
   monitor "install-node-binary" install_nodejs "$node_engine" "$BUILD_DIR/.heroku/node"
 
-  meta_set "build-step" "install-npm"
-  monitor "install-npm-binary" install_npm "$npm_engine" "$BUILD_DIR/.heroku/node" $NPM_LOCK
-
   node_version="$(node --version)"
   mcount "version.node.$node_version"
   meta_set "node-version" "$node_version"
 
-  # Download yarn if there is a yarn.lock file or if the user
-  # has specified a version of yarn under "engines". We'll still
-  # only install using yarn if there is a yarn.lock file
-  if $YARN || [ -n "$yarn_engine" ]; then
-    meta_set "build-step" "install-yarn"
-    monitor "install-yarn-binary" install_yarn "$BUILD_DIR/.heroku/yarn" "$yarn_engine"
-  fi
-
-  if $YARN; then
-    mcount "version.yarn.$(yarn --version)"
-    meta_set "yarn-version" "$(yarn --version)"
-  else
-    mcount "version.npm.$(npm --version)"
-    meta_set "npm-version" "$(npm --version)"
-  fi
-
   warn_old_npm
+
+  corepack enable
+  corepack prepare
 
   if [[ $YARN_2 == true ]]; then
     YARN=false
