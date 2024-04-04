@@ -56,3 +56,19 @@ jobs:
           bundler-cache: true
       - name: Run hatchet tests
         run: make hatchet
+
+  metrics-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # check the minimum node version supported by the metrics script and the latest node version
+        # (assumes the versions between have backwards-compatible APIs)
+        version: [14.10.0, latest]
+    name: Test Metrics (${{ matrix.version }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.version }}
+      - run: npx mocha metrics/test/metrics.spec.cjs
